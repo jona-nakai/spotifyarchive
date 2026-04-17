@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Agents Instructions
+AGENTS.md
+.codex
+CLAUDE.md
+
