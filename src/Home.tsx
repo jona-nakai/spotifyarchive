@@ -1,18 +1,14 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import type { DragEvent, ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { SpotifyJson } from "./types";
-import type { ValidFile } from "./types";
+import type { SpotifyJsonType } from "./types";
+import { saveRecords, hasRecords } from "./db";
 import JSZip from "jszip";
 import './Home.css'
 
-type HomeProps = {
-  files: ValidFile[];
-  setFiles: React.Dispatch<React.SetStateAction<ValidFile[]>>;
-};
-
-function Home({ files, setFiles }: HomeProps) {
+function Home() {
   
   type FileStatus = "noFiles" | "unzipping" | "validating" | "filesUploaded";
   const [status, setStatus] = useState<FileStatus>("noFiles")
@@ -46,8 +42,13 @@ function Home({ files, setFiles }: HomeProps) {
   const handleCancel = () => {
     runIdRef.current += 1;
   }
-  const handleReset = () => {
-    if (files) {
+  
+  const [hasData, setHasData] = useState<boolean>(false)
+  useEffect(() => {
+    hasRecords().then(result => setHasData(result))
+  }, [])
+  const handleReset = async () => {
+    if (hasData) {
       setStatus("filesUploaded");
     } else {
       setStatus("noFiles");
@@ -109,7 +110,7 @@ function Home({ files, setFiles }: HomeProps) {
     const runId = runIdRef.current;
     console.log("File validation started");
     setStatus("validating");
-    const validFiles: ValidFile[] = [];
+    const validFiles: SpotifyJsonType[] = [];
     for (let i=0; i<fileContent.length; i++) {
       const name = fileContent[i].name
       if (name.endsWith("ReadMeFirst_ExtendedStreamingHistory.pdf")) {
@@ -130,7 +131,7 @@ function Home({ files, setFiles }: HomeProps) {
         if (!result.success) {
           throw result.error;
         }
-        validFiles.push({ name: name, data: result.data });
+        validFiles.push(...result.data)
         console.log(`File ${name} validated`)
       } catch (error) {
         setErrors((prev) => [...prev, `Error parsing ${name}: ${error}`]);
@@ -142,8 +143,9 @@ function Home({ files, setFiles }: HomeProps) {
       return;
     }
 
-    setFiles(validFiles);
+    await saveRecords(validFiles);
     setStatus("filesUploaded");
+    setHasData(true)
   }
 
   const navigate = useNavigate()
@@ -177,13 +179,12 @@ function Home({ files, setFiles }: HomeProps) {
       </button>
 
       <button
-        disabled={files.length === 0}
+        disabled={!hasData || canCancel}
         onClick={() => navigate("/table")}
       >
         Take me to my data!
       </button>
       
-      {files.map(file => <div key={file.name}>{file.name}</div>)}
 
       <div>{errors}</div>
    </>

@@ -1,10 +1,4 @@
-import type { ValidFile } from "./types";
-
-type TableProps = {
-  files: ValidFile[];
-}
-
-function Table({ files }: TableProps) {
+function Table() {
   return (
     <div>hi</div>
   )

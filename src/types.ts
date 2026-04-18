@@ -27,5 +27,3 @@ export const SpotifyJson = z.object({
 })
 
 export type SpotifyJsonType = z.infer<typeof SpotifyJson>
-
-export type ValidFile = { name: string, data: SpotifyJsonType[] }
