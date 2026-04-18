@@ -1,13 +1,19 @@
 import { useState, useRef } from "react";
 import type { DragEvent, ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import JSZip from "jszip";
 import { z } from "zod";
+import { SpotifyJson } from "./types";
+import type { ValidFile } from "./types";
+import JSZip from "jszip";
 import './Home.css'
 
-function Home() {
+type HomeProps = {
+  files: ValidFile[];
+  setFiles: React.Dispatch<React.SetStateAction<ValidFile[]>>;
+};
+
+function Home({ files, setFiles }: HomeProps) {
   
-  const [files, setFiles] = useState<ValidFile[]>([]);
   type FileStatus = "noFiles" | "unzipping" | "validating" | "filesUploaded";
   const [status, setStatus] = useState<FileStatus>("noFiles")
 
@@ -97,36 +103,8 @@ function Home() {
     } 
     console.log("Finished unzipping user files")
     validateFiles(unzippedFiles)
-  }
+  } 
   
-  const SpotifyJson = z.object({
-    ts: z.string(),
-    platform: z.string(),
-    ms_played: z.number(),
-    conn_country: z.string(),
-    ip_addr: z.string(),
-    master_metadata_track_name: z.string().nullable(),
-    master_metadata_album_artist_name: z.string().nullable(),
-    master_metadata_album_album_name: z.string().nullable(),
-    spotify_track_uri: z.string().nullable(),
-    episode_name: z.string().nullable(),
-    episode_show_name: z.string().nullable(),
-    spotify_episode_uri: z.string().nullable(),
-    audiobook_title: z.string().nullable(),
-    audiobook_uri: z.string().nullable(),
-    audiobook_chapter_uri: z.string().nullable(),
-    audiobook_chapter_title: z.string().nullable(),
-    reason_start: z.string().nullable(),
-    reason_end: z.string().nullable(),
-    shuffle: z.boolean(),
-    skipped: z.boolean(),
-    offline: z.boolean().nullable(),
-    offline_timestamp: z.number().nullable(),
-    incognito_mode: z.boolean()
-  })
-  type SpotifyJsonType = z.infer<typeof SpotifyJson>
-  type ValidFile = { name: string, data: SpotifyJsonType[] }
-
   const validateFiles = async (fileContent: FileContent[]) => {
     const runId = runIdRef.current;
     console.log("File validation started");
