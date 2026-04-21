@@ -33,3 +33,14 @@ export type AudioTrackRow = {
   play_count: number,
   total_ms_played: number
 }
+
+export type ArtistTrackRow = {
+  play_count: number,
+  total_ms_played: number
+}
+
+export type AlbumTrackRow = {
+  album_name: string,
+  play_count: number,
+  total_ms_played: number
+}
