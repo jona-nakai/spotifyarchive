@@ -28,19 +28,41 @@ export const SpotifyJson = z.object({
 
 export type SpotifyJsonType = z.infer<typeof SpotifyJson>
 
-export type AudioTrackRow = {
+export type AudioTrackVals = {
   track_name: string,
   play_count: number,
   total_ms_played: number
 }
 
+export type AudioTrackRow = {
+  track_uri: string,
+  track_name: string,
+  play_count: number,
+  total_ms_played: number
+}
+
+export type ArtistTrackVals = {
+  play_count: number,
+  total_ms_played: number
+}
+
 export type ArtistTrackRow = {
+  artist_name: string,
+  play_count: number,
+  total_ms_played: number
+}
+
+export type AlbumTrackVals = {
+  album_name: string,
+  artist_name: string,
   play_count: number,
   total_ms_played: number
 }
 
 export type AlbumTrackRow = {
+  album_artist: string,
   album_name: string,
+  artist_name: string,
   play_count: number,
   total_ms_played: number
 }

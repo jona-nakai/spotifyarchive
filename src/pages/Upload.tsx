@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { SpotifyJson } from "../types/types";
 import type { SpotifyJsonType } from "../types/types";
-import { saveRecords, hasRecords } from "../db/db";
+import { saveRecords, hasRecords, createAudioStores } from "../db/db";
 import JSZip from "jszip";
 import './Upload.css'
 
@@ -144,6 +144,7 @@ function Home() {
     }
 
     await saveRecords(validFiles);
+    await createAudioStores();
     setStatus("filesUploaded");
     setHasData(true)
   }
@@ -180,7 +181,7 @@ function Home() {
 
       <button
         disabled={!hasData || canCancel}
-        onClick={() => navigate("/table")}
+        onClick={() => navigate("/stats")}
       >
         Take me to my data!
       </button>

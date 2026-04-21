@@ -1,12 +1,12 @@
 import { openDB } from 'idb';
 
-import type { SpotifyJsonType, AudioTrackRow, ArtistTrackRow, AlbumTrackRow } from '../types/types';
+import type { SpotifyJsonType, AudioTrackVals, ArtistTrackVals, AlbumTrackVals } from '../types/types';
 
-export async function connectDB() {
+async function connectDB() {
   const database = await openDB('spotify-archive', 1, {
     upgrade(db) {
       db.createObjectStore('audio', { autoIncrement: true });
-      db.createObjectStore('audio_track', { keyPath: 'uri' });
+      db.createObjectStore('audio_track', { keyPath: 'track_uri' });
       db.createObjectStore('audio_artist', { keyPath: 'artist_name' });
       db.createObjectStore('audio_album', { keyPath: 'album_artist' });
     }
@@ -47,9 +47,9 @@ export async function createAudioStores() {
   const tx = db.transaction('audio', 'readonly');
   const rows = await tx.store.getAll();
    
-  const trackMap = new Map<string, AudioTrackRow>();
-  const artistMap = new Map<string, ArtistTrackRow>();
-  const albumMap = new Map<string, AlbumTrackRow>();
+  const trackMap = new Map<string, AudioTrackVals>();
+  const artistMap = new Map<string, ArtistTrackVals>();
+  const albumMap = new Map<string, AlbumTrackVals>();
   for (const row of rows) {
     // Extract relevant information from each row
     const row_ms_played = row.ms_played;
@@ -99,12 +99,14 @@ export async function createAudioStores() {
       const current_total_ms = current_album.total_ms_played;
       albumMap.set(`${row_album_name}-${row_artist_name}`, {
         album_name: row_album_name,
+        artist_name: row_artist_name,
         play_count: current_playcount + 1,
         total_ms_played: current_total_ms + row_ms_played
       })
     } else {
-      albumMap.set(row_album_name, {
+      albumMap.set(`${row_album_name}-${row_artist_name}`, {
         album_name: row_album_name,
+        artist_name: row_artist_name,
         play_count: 1,
         total_ms_played: row_ms_played
       })     
@@ -119,8 +121,8 @@ export async function createAudioStores() {
   const promises: Promise<IDBValidKey>[] = []; 
   
   // store tracks
-  for (const [uri, track] of trackMap.entries()) {
-    promises.push(trackTx.store.add({ uri, ...track }));
+  for (const [track_uri, track] of trackMap.entries()) {
+    promises.push(trackTx.store.add({ track_uri, ...track }));
   }
 
   // store artists
@@ -134,4 +136,27 @@ export async function createAudioStores() {
   }
 
   await Promise.all([...promises, trackTx.done, artistTx.done, albumTx.done]);
+}
+
+export async function getStore(store: string) {
+  const database = await connectDB();
+  const tx = database.transaction(store, 'readonly');
+  const data = await tx.store.getAll();
+  return data
+}
+
+export async function getTotalStats() {
+  const database = await connectDB();
+  const tx = database.transaction('audio', 'readonly');
+
+  const rows = await tx.store.getAll();
+
+  const stats = { count: 0, total_ms_played: 0 };
+   
+  for (const row of rows) {
+    stats.count = stats.count + 1;
+    stats.total_ms_played = stats.total_ms_played + row.ms_played;
+  }
+
+  return stats
 }
