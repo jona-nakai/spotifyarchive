@@ -121,7 +121,7 @@ function Home() {
       }
       try {
         console.log(`Starting validation for file ${name}`)
-        const json_data = await JSON.parse(fileContent[i].content);
+        const json_data = JSON.parse(fileContent[i].content);
         if (runIdRef.current != runId) {
           console.log("File validation aborted by user");
           handleReset();

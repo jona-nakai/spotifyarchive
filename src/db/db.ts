@@ -44,6 +44,11 @@ export async function hasRecords() {
 
 export async function createAudioStores() {
   const db = await connectDB();
+
+  await db.clear('audio_track');
+  await db.clear('audio_artist');
+  await db.clear('audio_album');
+
   const tx = db.transaction('audio', 'readonly');
   const rows = await tx.store.getAll();
    
