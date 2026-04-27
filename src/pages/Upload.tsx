@@ -10,23 +10,26 @@ import './Upload.css'
 
 function Home() {
   
-  type FileStatus = "noFiles" | "unzipping" | "validating" | "filesUploaded";
-  const [status, setStatus] = useState<FileStatus>("noFiles")
-
+  type UploadStatus = "noFiles" | "unzip" | "validate" | "saveRecords" | "createAudioStores";
+  // Status for if a file has been uploaded and processed
+  const [status, setStatus] = useState<UploadStatus>("noFiles")
+  
+  // Receives file if dragged and dropped
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     if (status != "noFiles" && status != "filesUploaded") return;
     const droppedFilesList = event.dataTransfer.files;
-    const droppedFiles= Array.from(droppedFilesList);
+    const uploadedFiles = Array.from(droppedFilesList);
     console.log("Received files via dropped files")
-    unzipFiles(droppedFiles);
-    
+    unzipFiles(uploadedFiles);
   }
 
+  // Handle file dragging behavior
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
   }
-
+  
+  // Opens file browser for user to upload file
   const handleInput = (event: ChangeEvent<HTMLInputElement>) => {
     if (status != "noFiles" && status != "filesUploaded") return;
     const uploadedFilesList = event.currentTarget.files;
@@ -35,14 +38,15 @@ function Home() {
     console.log("Received files via file browser")
     unzipFiles(uploadedFiles)
   }
-  
+ 
+  // Toggles cancel button if a file is being uploaded and processed
   const runIdRef = useRef(0);
-
   const canCancel = status !== "noFiles" && status !== "filesUploaded";
   const handleCancel = () => {
     runIdRef.current += 1;
   }
   
+  // Handle cancel/interruptions
   const [hasData, setHasData] = useState<boolean>(false)
   useEffect(() => {
     hasRecords().then(result => setHasData(result))
@@ -101,9 +105,9 @@ function Home() {
       setErrors((prev) => [...prev, `Error: No files loaded`]);
       handleReset();
       return;
-    } 
-    console.log("Finished unzipping user files")
-    validateFiles(unzippedFiles)
+    }
+    
+    return unzippedFiles
   } 
   
   const validateFiles = async (fileContent: FileContent[]) => {
@@ -143,10 +147,15 @@ function Home() {
       return;
     }
 
-    await saveRecords(validFiles);
-    await createAudioStores();
     setStatus("filesUploaded");
     setHasData(true)
+  }
+
+  const loadFileProcess = async (uploadedFiles: File[]) => {
+    const unzippedFiles = await unzipFiles(uploadedFiles);
+    const validFiles = await validateFiles(unzippedFiles);
+    await saveRecords(validFiles);
+    await createAudioStores();
   }
 
   const navigate = useNavigate()

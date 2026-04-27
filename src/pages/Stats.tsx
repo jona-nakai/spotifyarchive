@@ -13,6 +13,19 @@ function Stats() {
       {totalStats === null ? <div>loading</div> : <div>Minutes played: {(totalStats.total_ms_played / 60000).toFixed(3)}</div>}
       {totalStats === null ? <div>loading</div> : <div>Hours played: {(totalStats.total_ms_played / 3600000).toFixed(3)}</div>}
       {totalStats === null ? <div>loading</div> : <div>Days played: {(totalStats.total_ms_played / 86400000).toFixed(3)}</div>}
+
+      {/* How many unique songs, artists, albums? */}
+
+      {/* Most listened songs */}
+
+      {/* Most listened artists */}
+
+      {/* Bar chart showing play time each month  */}
+
+      {/* Chart showing play time each hour of day, use d3.js circular barchart */}
+
+
+
     </> 
   )
 }

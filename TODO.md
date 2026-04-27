@@ -1,0 +1,27 @@
+- Comment all code written
+- Handle file upload if a user already has uploaded data
+    - User should be prompted with a popup warning initiating a new file upload will delete their old data
+    - Clear all IDB db's
+- All data uploading and processing should come before you can proceed to stats page
+    - Create a status for each of these stages
+    - Figure out how to show xx/xx for things like processing multiple files if appropriate
+- Create an IDB store for storing aggregate data
+    - Total time played, counts, etc.
+    - Can probably store most played, songs, artists, etc. here, and use a separate store for full interactive table
+- Create chart for play time over each month listened to music
+    - First need to create store for this
+    - Chart.js
+- Create circular chart for play time throughout the day
+    - First need to create store for this
+    - D3.js
+- Create table for track, artists, and albums
+    - Unique
+    - First column: track/artist/album
+    - 2nd and 3rd column: data about track (artist, album)
+    - Play time/count (toggle between the two)
+        - Drop down for what unit of time
+    - Shows 20 rows on table
+        - Option to go to next, previous, or a page number
+- Create a table for all data
+    - We can sort this chonologically
+    - Drop down to select what columns you want to add
