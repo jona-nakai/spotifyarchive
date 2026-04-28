@@ -10,18 +10,21 @@ import './Upload.css'
 
 function Home() {
   
-  type UploadStatus = "noFiles" | "unzip" | "validate" | "saveRecords" | "createAudioStores";
+  type UploadStatus = "noFiles" | "unzip" | "validate" | "saveRecords" | "createAudioStores" | "aggregateData" | "uploadComplete";
   // Status for if a file has been uploaded and processed
-  const [status, setStatus] = useState<UploadStatus>("noFiles")
+  const [status, setStatus] = useState<UploadStatus>("noFiles");  
+  const [showWarningModal, setShowWarningModal] = useState<Boolean>(false);
+  const [pendingFiles, setPendingFiles] = useState<Files[] | null>(null);
   
   // Receives file if dragged and dropped
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-    if (status != "noFiles" && status != "filesUploaded") return;
+    if (status != "noFiles" && status != "uploadComplete") return;
     const droppedFilesList = event.dataTransfer.files;
     const uploadedFiles = Array.from(droppedFilesList);
     console.log("Received files via dropped files")
-    unzipFiles(uploadedFiles);
+    setShowWarningModal(true);
+    setPendingFiles(uploadedFiles);
   }
 
   // Handle file dragging behavior
@@ -31,12 +34,25 @@ function Home() {
   
   // Opens file browser for user to upload file
   const handleInput = (event: ChangeEvent<HTMLInputElement>) => {
-    if (status != "noFiles" && status != "filesUploaded") return;
+    if (status != "noFiles" && status != "uploadComplete") return;
     const uploadedFilesList = event.currentTarget.files;
     if (!uploadedFilesList) return;
     const uploadedFiles = Array.from(uploadedFilesList)
-    console.log("Received files via file browser")
-    unzipFiles(uploadedFiles)
+    console.log("Received files via file browser");
+    setShowWarningModal(true);
+    setPendingFiles(uploadedFiles);
+  } 
+
+  const handleWarningProceed = () => {
+    setShowWarningModal(false);
+    const uploadedFiles = pendingFiles;
+    setPendingFiles(null);
+    loadFileProcess(uploadedFiles);
+  }
+
+  const handleWarningCancel = () => {
+    setShotWarningModal(false);
+    setPendingFiles(null);
   }
  
   // Toggles cancel button if a file is being uploaded and processed
@@ -44,19 +60,6 @@ function Home() {
   const canCancel = status !== "noFiles" && status !== "filesUploaded";
   const handleCancel = () => {
     runIdRef.current += 1;
-  }
-  
-  // Handle cancel/interruptions
-  const [hasData, setHasData] = useState<boolean>(false)
-  useEffect(() => {
-    hasRecords().then(result => setHasData(result))
-  }, [])
-  const handleReset = async () => {
-    if (hasData) {
-      setStatus("filesUploaded");
-    } else {
-      setStatus("noFiles");
-    }
   }
 
   type FileContent = {name: string, content: string};
@@ -197,6 +200,16 @@ function Home() {
       
 
       <div>{errors}</div>
+
+      {showWarningModal && (
+        <>
+          <div>
+            <div>Warning</div>
+            <button onClick={handleWarningProceed}>Proceed</button>
+            <button onClick={handleWarningCancel}>Cancel</button>
+          </div>
+        </>
+      )}
    </>
   )
 }
