@@ -11,10 +11,15 @@ import './Upload.css'
 function Home() {
   
   type UploadStatus = "noFiles" | "unzip" | "validate" | "saveRecords" | "createAudioStores" | "aggregateData" | "uploadComplete";
-  // Status for if a file has been uploaded and processed
+  
+  // TODO: make it so inital status is dependent upon whether there is a file save in idb
+  
+
+
+
   const [status, setStatus] = useState<UploadStatus>("noFiles");  
   const [showWarningModal, setShowWarningModal] = useState<Boolean>(false);
-  const [pendingFiles, setPendingFiles] = useState<Files[] | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<File[] | null>(null);
   
   // Receives file if dragged and dropped
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {

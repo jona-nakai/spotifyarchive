@@ -16,6 +16,8 @@ function Stats() {
 
       {/* How many unique songs, artists, albums? */}
 
+      {/* First song ever played and date */}
+
       {/* Most listened songs */}
 
       {/* Most listened artists */}
@@ -24,7 +26,11 @@ function Stats() {
 
       {/* Chart showing play time each hour of day, use d3.js circular barchart */}
 
+      {/* Interactive table for songs */}
+      
+      {/* Interactive table for artists */}
 
+      {/* Interactive table for albums */}
 
     </> 
   )
