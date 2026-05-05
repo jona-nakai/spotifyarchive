@@ -2,23 +2,25 @@ import { useState, useRef, useEffect } from "react";
 import type { DragEvent, ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
-import { SpotifyJson } from "../types/types";
-import type { SpotifyJsonType } from "../types/types";
-import { saveRecords, hasRecords, createAudioStores } from "../db/db";
+import { SpotifyJson } from "../types";
+import type { SpotifyJsonType } from "../types";
+import { saveRecords, hasRecords } from "../db";
 import JSZip from "jszip";
 import './Upload.css'
 
 function Home() {
   
   type UploadStatus = "noFiles" | "unzip" | "validate" | "saveRecords" | "createAudioStores" | "aggregateData" | "uploadComplete";
-  
-  // TODO: make it so inital status is dependent upon whether there is a file save in idb
-  
-
-
-
   const [status, setStatus] = useState<UploadStatus>("noFiles");  
-  const [showWarningModal, setShowWarningModal] = useState<Boolean>(false);
+
+  const [hasData, setHasData] = useState<boolean>(false);
+  useEffect(() => {
+    hasRecords().then((complete) => {
+      setHasData(complete)
+    })
+  }, [status])
+
+    const [showWarningModal, setShowWarningModal] = useState<Boolean>(false);
   const [pendingFiles, setPendingFiles] = useState<File[] | null>(null);
   
   // Receives file if dragged and dropped
