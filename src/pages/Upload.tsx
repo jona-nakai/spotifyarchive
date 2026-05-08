@@ -10,7 +10,7 @@ import './Upload.css'
 
 function Home() {
   
-  type UploadStatus = "noFiles" | "unzip" | "validate" | "saveRecords" | "createAudioStores" | "aggregateData" | "uploadComplete";
+  type UploadStatus = "noFiles" | "warningModal" | "unzip" | "validate" | "saveRecords" | "createAudioStores" | "aggregateData" | "uploadComplete";
   const [status, setStatus] = useState<UploadStatus>("noFiles");  
 
   const [hasData, setHasData] = useState<boolean>(false);
@@ -30,8 +30,9 @@ function Home() {
     const droppedFilesList = event.dataTransfer.files;
     const uploadedFiles = Array.from(droppedFilesList);
     console.log("Received files via dropped files")
-    setShowWarningModal(true);
     setPendingFiles(uploadedFiles);
+    setStatus("warningModal");
+    setShowWarningModal(true);
   }
 
   // Handle file dragging behavior
@@ -46,25 +47,41 @@ function Home() {
     if (!uploadedFilesList) return;
     const uploadedFiles = Array.from(uploadedFilesList)
     console.log("Received files via file browser");
-    setShowWarningModal(true);
     setPendingFiles(uploadedFiles);
-  } 
-
-  const handleWarningProceed = () => {
-    setShowWarningModal(false);
-    const uploadedFiles = pendingFiles;
-    setPendingFiles(null);
-    loadFileProcess(uploadedFiles);
+    setStatus("warningModal");
+    setShowWarningModal(true);
   }
 
-  const handleWarningCancel = () => {
-    setShotWarningModal(false);
+  const handleReset = async () => {
+    const recordStatus = await hasRecords();
+    if (recordStatus) {
+      setStatus("uploadComplete");
+    } else {
+      setStatus("noFiles");
+    }
+  }
+
+  const handleWarningProceed = async () => {
+    setShowWarningModal(false);
+    if (!pendingFiles) {
+      setShowWarningModal(false);
+      setPendingFiles(null);
+      await handleReset();
+      return;
+    }
+    loadFileProcess(pendingFiles);
     setPendingFiles(null);
+  }
+
+  const handleWarningCancel = async () => {
+    setShowWarningModal(false);
+    setPendingFiles(null);
+    await handleReset();
   }
  
   // Toggles cancel button if a file is being uploaded and processed
   const runIdRef = useRef(0);
-  const canCancel = status !== "noFiles" && status !== "filesUploaded";
+  const canCancel = status !== "noFiles" && status !== "uploadComplete";
   const handleCancel = () => {
     runIdRef.current += 1;
   }
@@ -157,7 +174,7 @@ function Home() {
       return;
     }
 
-    setStatus("filesUploaded");
+    setStatus("uploadComplete");
     setHasData(true)
   }
 
@@ -165,7 +182,6 @@ function Home() {
     const unzippedFiles = await unzipFiles(uploadedFiles);
     const validFiles = await validateFiles(unzippedFiles);
     await saveRecords(validFiles);
-    await createAudioStores();
   }
 
   const navigate = useNavigate()
@@ -183,7 +199,7 @@ function Home() {
       >
         <p>File Upload</p>
       </div>
-      <input 
+<input 
         type="file"
         multiple
         onChange={handleInput}
