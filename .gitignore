@@ -24,7 +24,5 @@ dist-ssr
 *.sw?
 
 # Agents Instructions
-AGENTS.md
 .codex
-CLAUDE.md
 

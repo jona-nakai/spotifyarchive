@@ -24,40 +24,49 @@ export const SpotifyJson = z.object({
   offline: z.boolean().nullable(),
   offline_timestamp: z.number().nullable(),
   incognito_mode: z.boolean()
-})
+});
 
 export type SpotifyJsonType = z.infer<typeof SpotifyJson>
+
+export const AudioRow = SpotifyJson.extend({
+  master_metadata_track_name: z.string(),
+  master_metadata_album_artist_name: z.string(),
+  master_metadata_album_album_name: z.string(),
+  spotify_track_uri: z.string(),
+});
+
+export type AudioRowType = z.infer<typeof AudioRow>;
 
 export type AudioTrackVals = {
   track_name: string,
   play_count: number,
   total_ms_played: number
-}
+};
 
 export type AudioTrackRow = {
   track_uri: string,
   track_name: string,
   play_count: number,
   total_ms_played: number
-}
+};
 
 export type ArtistTrackVals = {
   play_count: number,
   total_ms_played: number
-}
+};
 
 export type ArtistTrackRow = {
   artist_name: string,
   play_count: number,
   total_ms_played: number
-}
+};
 
 export type AlbumTrackVals = {
   album_name: string,
   artist_name: string,
   play_count: number,
   total_ms_played: number
-}
+};
 
 export type AlbumTrackRow = {
   album_artist: string,
@@ -65,4 +74,4 @@ export type AlbumTrackRow = {
   artist_name: string,
   play_count: number,
   total_ms_played: number
-}
+};

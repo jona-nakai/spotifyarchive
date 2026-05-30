@@ -2,88 +2,120 @@ import { useState, useRef, useEffect } from "react";
 import type { DragEvent, ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
-import { SpotifyJson } from "../types/types";
-import type { SpotifyJsonType } from "../types/types";
-import { saveRecords, hasRecords, createAudioStores } from "../db/db";
+import { SpotifyJson } from "../types";
+import type { SpotifyJsonType } from "../types";
+import { saveRecords, hasRecords } from "../db";
 import JSZip from "jszip";
 import './Upload.css'
 
 function Home() {
+  // Tracks page upload status
+  type UploadStatus = "checkingData" | "noFiles" | "warningModal" | "unzipping" | "validating" | "saveRecords" | "uploadComplete";
+  const [status, setStatus] = useState<UploadStatus>("checkingData");  
   
-  type FileStatus = "noFiles" | "unzipping" | "validating" | "filesUploaded";
-  const [status, setStatus] = useState<FileStatus>("noFiles")
+  // Check if complete data is stored
+  useEffect(() => {
+    hasRecords().then((complete) => {
+      if (!complete) {
+        setStatus("noFiles");
+      } else {
+        setStatus("uploadComplete");
+      }
+    })
+  }, [])
 
+  const [showWarningModal, setShowWarningModal] = useState<boolean>(false);
+  const [pendingFiles, setPendingFiles] = useState<File[] | null>(null);
+  
+  // Receives file if dragged and dropped
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-    if (status != "noFiles" && status != "filesUploaded") return;
+    if (status != "noFiles" && status != "uploadComplete") return;
     const droppedFilesList = event.dataTransfer.files;
-    const droppedFiles= Array.from(droppedFilesList);
+    const uploadedFiles = Array.from(droppedFilesList);
     console.log("Received files via dropped files")
-    unzipFiles(droppedFiles);
-    
+    setPendingFiles(uploadedFiles);
+    setStatus("warningModal");
+    setShowWarningModal(true);
   }
 
+  // Handle file dragging behavior
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
   }
-
+  
+  // Opens file browser for user to upload file
   const handleInput = (event: ChangeEvent<HTMLInputElement>) => {
-    if (status != "noFiles" && status != "filesUploaded") return;
+    if (status != "noFiles" && status != "uploadComplete") return;
     const uploadedFilesList = event.currentTarget.files;
     if (!uploadedFilesList) return;
     const uploadedFiles = Array.from(uploadedFilesList)
-    console.log("Received files via file browser")
-    unzipFiles(uploadedFiles)
+    console.log("Received files via file browser");
+    setPendingFiles(uploadedFiles);
+    setStatus("warningModal");
+    setShowWarningModal(true);
   }
-  
-  const runIdRef = useRef(0);
 
-  const canCancel = status !== "noFiles" && status !== "filesUploaded";
-  const handleCancel = () => {
-    runIdRef.current += 1;
-  }
-  
-  const [hasData, setHasData] = useState<boolean>(false)
-  useEffect(() => {
-    hasRecords().then(result => setHasData(result))
-  }, [])
   const handleReset = async () => {
-    if (hasData) {
-      setStatus("filesUploaded");
+    const complete = await hasRecords();
+
+    if (complete) {
+      setStatus("uploadComplete");
     } else {
       setStatus("noFiles");
     }
+  }
+
+  const handleWarningProceed = async () => {
+    setShowWarningModal(false);
+    if (!pendingFiles) {
+      setShowWarningModal(false);
+      setPendingFiles(null);
+      await handleReset();
+      return;
+    }
+    loadFileProcess(pendingFiles);
+    setPendingFiles(null);
+  }
+
+  const handleWarningCancel = async () => {
+    setShowWarningModal(false);
+    setPendingFiles(null);
+    await handleReset();
+  }
+ 
+  // Toggles cancel button if a file is being uploaded and processed
+  const runIdRef = useRef(0);
+  const canCancel = 
+    status === "unzipping" || 
+    status === "validating" ||
+    status === "saveRecords";
+  const handleCancel = () => {
+    runIdRef.current += 1;
   }
 
   type FileContent = {name: string, content: string};
 
   const [errors, setErrors] = useState<string[]>([])
 
-  const unzipFiles = async (files: File[]) => {
-    runIdRef.current += 1;
-    const runId = runIdRef.current;
-    setErrors([])
-    
+  const unzipFiles = async (files: File[], runId: number) => {
+   
     console.log("Started unzipping user files")
-    setStatus("unzipping")
-    const unzippedFiles: FileContent[] = Array()
+    const unzippedFiles: FileContent[] = [];
 
     for (const file of files) {
+      if (runIdRef.current != runId) return;
+
       if (file.name.toLowerCase().endsWith(".zip")) {
         try {
-          console.log(`Unzipping ${file.name}`)
           const zip = await JSZip.loadAsync(file);
-          if (runIdRef.current != runId) {
-            console.log("File processing aborted by user");
-            handleReset();
-            return;
-          }
+          if (runIdRef.current != runId) return;
           for (const [name, zipContent] of Object.entries(zip.files)) {
             if (zipContent.dir) continue;
             const content = await zipContent.async("text");
+            if (runIdRef.current != runId) return;
             unzippedFiles.push({name: name, content: content})
           }
-          console.log(`File ${file.name} unzipped`)
         } catch (error) {
           setErrors((prev) => [...prev, `Error unzipping ${file.name}: ${error}`]);
         } 
@@ -91,6 +123,7 @@ function Home() {
         try {
           const name = file.name;
           const content = await file.text();
+          if (runIdRef.current != runId) return;
           unzippedFiles.push({name: name, content: content})
         } catch (error) {
           setErrors((prev) => [...prev, `Error: ${error}`])
@@ -99,19 +132,17 @@ function Home() {
     }
     if (unzippedFiles.length == 0) {
       setErrors((prev) => [...prev, `Error: No files loaded`]);
-      handleReset();
       return;
-    } 
-    console.log("Finished unzipping user files")
-    validateFiles(unzippedFiles)
+    }
+    
+    return unzippedFiles
   } 
   
-  const validateFiles = async (fileContent: FileContent[]) => {
-    const runId = runIdRef.current;
+  const validateFiles = async (fileContent: FileContent[], runId: number) => {
     console.log("File validation started");
-    setStatus("validating");
     const validFiles: SpotifyJsonType[] = [];
-    for (let i=0; i<fileContent.length; i++) {
+    for (let i = 0; i < fileContent.length; i++) {
+      if (runIdRef.current != runId) return;
       const name = fileContent[i].name
       if (name.endsWith("ReadMeFirst_ExtendedStreamingHistory.pdf")) {
         continue;
@@ -122,11 +153,7 @@ function Home() {
       try {
         console.log(`Starting validation for file ${name}`)
         const json_data = JSON.parse(fileContent[i].content);
-        if (runIdRef.current != runId) {
-          console.log("File validation aborted by user");
-          handleReset();
-          return;
-        }
+        if (runIdRef.current !== runId) return;
         const result = z.array(SpotifyJson).safeParse(json_data)
         if (!result.success) {
           throw result.error;
@@ -139,14 +166,42 @@ function Home() {
     }
     if (validFiles.length == 0) {
       setErrors((prev) => [...prev, `Error: No files after validation`]);
+      return;
+    }
+
+    return validFiles;
+  }
+
+  const loadFileProcess = async (uploadedFiles: File[]) => {
+    runIdRef.current += 1;
+    const runId = runIdRef.current;
+    setErrors([])
+ 
+    setStatus("unzipping");
+    const unzippedFiles = await unzipFiles(uploadedFiles, runId);
+    if (!unzippedFiles) {
       handleReset();
       return;
     }
 
-    await saveRecords(validFiles);
-    await createAudioStores();
-    setStatus("filesUploaded");
-    setHasData(true)
+    setStatus("validating");
+    const validFiles = await validateFiles(unzippedFiles, runId);
+    if (!validFiles) {
+      handleReset();
+      return;
+    }
+
+    setStatus("saveRecords");
+    const saved = await saveRecords(
+      validFiles,
+      () => runIdRef.current !== runId
+    );
+    if (!saved) {
+      handleReset();
+      return;
+    }
+
+    setStatus("uploadComplete");
   }
 
   const navigate = useNavigate()
@@ -164,7 +219,7 @@ function Home() {
       >
         <p>File Upload</p>
       </div>
-      <input 
+<input 
         type="file"
         multiple
         onChange={handleInput}
@@ -180,7 +235,7 @@ function Home() {
       </button>
 
       <button
-        disabled={!hasData || canCancel}
+        disabled={status !== "uploadComplete" || canCancel}
         onClick={() => navigate("/stats")}
       >
         Take me to my data!
@@ -188,6 +243,16 @@ function Home() {
       
 
       <div>{errors}</div>
+
+      {showWarningModal && (
+        <>
+          <div>
+            <div>Warning</div>
+            <button onClick={handleWarningProceed}>Proceed</button>
+            <button onClick={handleWarningCancel}>Cancel</button>
+          </div>
+        </>
+      )}
    </>
   )
 }
