@@ -5,6 +5,7 @@ import { z } from "zod";
 import { SpotifyJson } from "../types";
 import type { SpotifyJsonType } from "../types";
 import { saveRecords, hasRecords } from "../db";
+import { redirectToSpotifyAuth } from "../spotify.ts"
 import JSZip from "jszip";
 import './Upload.css'
 
@@ -212,6 +213,10 @@ function Home() {
       <header>
         <h1>Spotify Archive</h1>
       </header>
+
+      <button onClick={redirectToSpotifyAuth}>
+        Spotify Auth
+      </button>
 
       <div
         onDrop={handleDrop}

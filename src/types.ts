@@ -38,40 +38,48 @@ export const AudioRow = SpotifyJson.extend({
 export type AudioRowType = z.infer<typeof AudioRow>;
 
 export type AudioTrackVals = {
-  track_name: string,
-  play_count: number,
-  total_ms_played: number
+  track_name: string;
+  play_count: number;
+  total_ms_played: number;
 };
 
 export type AudioTrackRow = {
-  track_uri: string,
-  track_name: string,
-  play_count: number,
-  total_ms_played: number
+  track_uri: string;
+  track_name: string;
+  play_count: number;
+  total_ms_played: number;
 };
 
 export type ArtistTrackVals = {
-  play_count: number,
-  total_ms_played: number
+  play_count: number;
+  total_ms_played: number;
 };
 
 export type ArtistTrackRow = {
-  artist_name: string,
-  play_count: number,
-  total_ms_played: number
+  artist_name: string;
+  play_count: number;
+  total_ms_played: number;
 };
 
 export type AlbumTrackVals = {
-  album_name: string,
-  artist_name: string,
-  play_count: number,
-  total_ms_played: number
+  album_name: string;
+  artist_name: string;
+  play_count: number;
+  total_ms_played: number;
 };
 
 export type AlbumTrackRow = {
-  album_artist: string,
-  album_name: string,
-  artist_name: string,
-  play_count: number,
-  total_ms_played: number
+  album_artist: string;
+  album_name: string;
+  artist_name: string;
+  play_count: number;
+  total_ms_played: number;
 };
+
+export type SpotifyTokenResponse = {
+  access_token: string,
+  token_type: "Bearer",
+  expires_in: number,
+  refresh_token?: string,
+  scope?: string;
+}

@@ -1,14 +1,13 @@
 import { openDB } from 'idb';
-
+import { AudioRow } from './types'
 import type { 
   SpotifyJsonType,
   AudioRowType,
   AudioTrackVals, 
   ArtistTrackVals, 
-  AlbumTrackVals
+  AlbumTrackVals,
+  SpotifyTokenResponse
 } from './types';
-
-import { AudioRow } from './types'
 
 async function connectDB() {
   const database = await openDB('spotify-archive', 1, {
@@ -19,6 +18,7 @@ async function connectDB() {
       db.createObjectStore('audio_album', { keyPath: 'album_artist' });
       db.createObjectStore('total_stats', { autoIncrement: true });
       db.createObjectStore('metadata', { keyPath: 'key' });
+      db.createObjectStore('spotify_auth', { keyPath: "key" });
     }
   })
 
@@ -212,4 +212,17 @@ export async function getStore(store: string) {
   const tx = database.transaction(store, 'readonly');
   const data = await tx.store.getAll();
   return data
+}
+
+export async function saveSpotifyToken(token: SpotifyTokenResponse) {
+  const db = await connectDB();
+
+  await db.put('spotify_auth', {
+    key: "token",
+    accessToken: token.access_token,
+    refreshToken: token.refresh_token,
+    tokenType: token.token_type,
+    scope: token.scope ?? "",
+    expiresAt: Date.now() + token.expires_in * 1000,
+  })
 }
