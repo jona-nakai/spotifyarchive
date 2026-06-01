@@ -1,5 +1,5 @@
-import { openDB } from 'idb';
-import { AudioRow } from './types'
+import { openDB } from "idb";
+import { AudioRow } from "./types";
 import type { 
   SpotifyJsonType,
   AudioRowType,
@@ -7,7 +7,7 @@ import type {
   ArtistTrackVals, 
   AlbumTrackVals,
   SpotifyTokenResponse
-} from './types';
+} from "./types";
 
 async function connectDB() {
   const database = await openDB('spotify-archive', 1, {
@@ -44,7 +44,7 @@ export async function saveRecords(
   // --- Store audio records from Spotify data ---
   // ---------------------------------------------
   const audioTx = db.transaction('audio', 'readwrite');
-  audioTx.store.clear();   
+  audioTx.store.clear(); 
   
   const audioRows: AudioRowType[] = [];
   for (const record of records) {
@@ -225,4 +225,10 @@ export async function saveSpotifyToken(token: SpotifyTokenResponse) {
     scope: token.scope ?? "",
     expiresAt: Date.now() + token.expires_in * 1000,
   })
+}
+
+export async function getSpotifyToken() {
+  const db = await connectDB();
+  const token = await db.get('spotify_auth', 'token');
+  return token;
 }

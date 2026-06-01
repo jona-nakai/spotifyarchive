@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import { exchangeSpotifyCodeForToken } from '../spotify';
-import { saveSpotifyToken } from '../db';
+import { exchangeSpotifyCodeForToken } from "../spotify";
+import { saveSpotifyToken } from "../db";
 
 export default function Callback() {
   useEffect(() => {
@@ -11,24 +11,24 @@ export default function Callback() {
 
       if (error) {
         console.error("Spotify authorization error:", error);
+        window.location.replace("/upload");
         return;
       }
 
       if (!code) {
         console.error("Missing Spotify authorization code");
+        window.location.replace("/upload");
         return;
       }
 
       const token = await exchangeSpotifyCodeForToken(code);
       await saveSpotifyToken(token);
-      window.location.replace("/");
+      window.location.replace("/upload");
     }
 
     connectSpotify();
   }, [])
   return (
-
-
     <>
       <div>Connecting Spotify...</div>
     </>

@@ -7,7 +7,7 @@ import type { SpotifyJsonType } from "../types";
 import { saveRecords, hasRecords } from "../db";
 import { redirectToSpotifyAuth } from "../spotify.ts"
 import JSZip from "jszip";
-import './Upload.css'
+import "./Upload.css"
 
 function Home() {
   // Tracks page upload status

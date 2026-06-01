@@ -1,5 +1,5 @@
-// import { useState, useEffect } from 'react';
-// import { getTotalStats } from '../db';
+// import { useState, useEffect } from "react";
+// import { getTotalStats } from "../db";
 
 function Stats() {
   // const [totalStats, setTotalStats] = useState<{ count: number, total_ms_played: number}| null>(null);
