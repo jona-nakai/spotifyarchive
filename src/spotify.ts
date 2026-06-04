@@ -153,7 +153,7 @@ export async function fetchSpotifyTracks(
   const ids = trackIds.join(",");
 
   const response = await fetch(
-    `https://api.spotify.com/v1/tracks?ids=${encodeURIComponent(ids)}`,
+    `https://api.spotify.com/v1/tracks?ids=${encodeURIComponent(ids)}&market=US`,
     {
       headers: {
         Authorization: `Bearer ${accessToken}`,
