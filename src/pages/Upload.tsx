@@ -5,7 +5,11 @@ import { z } from "zod";
 import { SpotifyJson } from "../types";
 import type { SpotifyJsonType } from "../types";
 import { saveRecords, hasRecords } from "../db";
-import { redirectToSpotifyAuth } from "../spotify.ts"
+import {
+  redirectToSpotifyAuth,
+  SpotifyRateLimitError,
+  SpotifyUnauthorizedError,
+} from "../spotify.ts"
 import JSZip from "jszip";
 import "./Upload.css"
 
@@ -193,10 +197,36 @@ function Home() {
     }
 
     setStatus("saveRecords");
-    const saved = await saveRecords(
-      validFiles,
-      () => runIdRef.current !== runId
-    );
+
+    let saved = false;
+
+    try {
+      saved = await saveRecords(
+        validFiles,
+        () => runIdRef.current !== runId
+      );
+    } catch (error) {
+      if (error instanceof SpotifyUnauthorizedError) {
+        setErrors((prev) => [
+          ...prev,
+          "Spotify connection expired. Please reconnect your Spotify account.",
+        ]);
+      } else if (error instanceof SpotifyRateLimitError) {
+        setErrors((prev) => [
+          ...prev,
+          "Spotify is rate limiting requests. Please try again later.",
+        ]);
+      } else {
+        setErrors((prev) => [
+          ...prev,
+          `Error saving records: ${error}`,
+        ]);
+      }
+
+      handleReset();
+      return;
+    }
+    
     if (!saved) {
       handleReset();
       return;

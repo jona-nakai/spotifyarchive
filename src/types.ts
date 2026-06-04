@@ -26,60 +26,73 @@ export const SpotifyJson = z.object({
   incognito_mode: z.boolean()
 });
 
-export type SpotifyJsonType = z.infer<typeof SpotifyJson>
+export type SpotifyJsonType = z.infer<typeof SpotifyJson>;
 
-export const AudioRow = SpotifyJson.extend({
-  master_metadata_track_name: z.string(),
-  master_metadata_album_artist_name: z.string(),
-  master_metadata_album_album_name: z.string(),
-  spotify_track_uri: z.string(),
-});
+export type PlayRecord = {
+  ts: string;
+  msPlayed: number;
+  connCountry: string;
 
-export type AudioRowType = z.infer<typeof AudioRow>;
+  trackId: string;
+  trackName: string;
+  artistName: string;
+  albumName: string;
 
-export type AudioTrackVals = {
-  track_name: string;
-  play_count: number;
-  total_ms_played: number;
+  reasonStart: string | null;
+  reasonEnd: string | null;
+  shuffle: boolean;
+  skipped: boolean;
+  offline: boolean | null;
+  offlineTimestamp: number | null;
+  incognitoMode: boolean;
 };
 
-export type AudioTrackRow = {
-  track_uri: string;
-  track_name: string;
-  play_count: number;
-  total_ms_played: number;
+export type TrackRecord = {
+  id: string;
+  artistIds: string[];
+  albumId: string;
+
+  name: string;
+  spotifyUrl: string;
+
+  durationMs: number;
+  explicit: boolean;
+  popularity: number;
+  discNumber: number;
+  trackNumber: number;
 };
 
-export type ArtistTrackVals = {
-  play_count: number;
-  total_ms_played: number;
+export type ArtistRecord = {
+  id: string;
+
+  name: string;
+  spotifyUrl: string;
 };
 
-export type ArtistTrackRow = {
-  artist_name: string;
-  play_count: number;
-  total_ms_played: number;
+export type AlbumImage = {
+  url: string;
+  height: number | null;
+  width: number | null;
 };
 
-export type AlbumTrackVals = {
-  album_name: string;
-  artist_name: string;
-  play_count: number;
-  total_ms_played: number;
-};
+export type AlbumRecord = {
+  id: string;
+  artistIds: string[];
 
-export type AlbumTrackRow = {
-  album_artist: string;
-  album_name: string;
-  artist_name: string;
-  play_count: number;
-  total_ms_played: number;
+  name: string;
+  spotifyUrl: string;
+  images: AlbumImage[];
+
+  albumType: "album" | "single" | "compilation";
+  totalTracks: number;
+  releaseDate: string;
+  releaseDatePrecision: "year" | "month" | "day";
 };
 
 export type SpotifyTokenResponse = {
-  access_token: string,
-  token_type: "Bearer",
-  expires_in: number,
-  refresh_token?: string,
+  access_token: string;
+  token_type: "Bearer";
+  expires_in: number;
+  refresh_token?: string;
   scope?: string;
-}
+};

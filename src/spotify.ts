@@ -1,3 +1,48 @@
+export type SpotifyApiArtist = {
+  id: string;
+  name: string;
+  external_urls: {
+    spotify: string;
+  };
+};
+
+export type SpotifyApiAlbum = {
+  id: string;
+  name: string;
+  external_urls: {
+    spotify: string;
+  };
+  images: {
+    url: string;
+    height: number | null;
+    width: number | null;
+  }[];
+  album_type: "album" | "single" | "compilation";
+  total_tracks: number;
+  release_date: string;
+  release_date_precision: "year" | "month" | "day";
+  artists: SpotifyApiArtist[];
+};
+
+export type SpotifyApiTrack = {
+  id: string;
+  name: string;
+  artists: SpotifyApiArtist[];
+  album: SpotifyApiAlbum;
+  external_urls: {
+    spotify: string;
+  };
+  duration_ms: number;
+  explicit: boolean;
+  popularity: number;
+  disc_number: number;
+  track_number: number;
+};
+
+type SpotifyTracksResponse = {
+  tracks: SpotifyApiTrack[];
+};
+
 function generateCodeVerifier(length: number) {
   const possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
@@ -79,4 +124,65 @@ export async function exchangeSpotifyCodeForToken(code: string) {
   }
 
   return response.json();
+}
+
+export class SpotifyUnauthorizedError extends Error {
+  constructor() {
+    super("Spotify access token expired or invalid");
+  }
+}
+
+export class SpotifyRateLimitError extends Error {
+  retryAfter: number | null;
+
+  constructor(retryAfter: number | null) {
+    super("Spotify rate limit exceeded");
+    this.retryAfter = retryAfter;
+  }
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function fetchSpotifyTracks(
+  trackIds: string[],
+  accessToken: string,
+  retriesLeft = 3
+): Promise<SpotifyApiTrack[]> {
+  const ids = trackIds.join(",");
+
+  const response = await fetch(
+    `https://api.spotify.com/v1/tracks?ids=${encodeURIComponent(ids)}`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
+
+  if (response.status === 401) {
+    throw new SpotifyUnauthorizedError();
+  }
+
+  if (response.status === 429 && retriesLeft > 0) {
+    const retryAfter = Number(response.headers.get("Retry-After") ?? 1);
+
+    await wait(retryAfter * 1000);
+
+    return fetchSpotifyTracks(trackIds, accessToken, retriesLeft - 1);
+  }
+
+  if (response.status === 429) {
+    const retryAfter = Number(response.headers.get("Retry-After") ?? 1);
+
+    throw new SpotifyRateLimitError(retryAfter);
+  }
+
+  if (!response.ok) {
+    throw new Error(`Spotify tracks request failed: ${response.status}`);
+  }
+
+  const data: SpotifyTracksResponse = await response.json();
+  return data.tracks;
 }

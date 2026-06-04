@@ -1,223 +1,38 @@
 import { openDB } from "idb";
-import { AudioRow } from "./types";
 import type { 
   SpotifyJsonType,
-  AudioRowType,
-  AudioTrackVals, 
-  ArtistTrackVals, 
-  AlbumTrackVals,
+  PlayRecord,
+  TrackRecord,
+  ArtistRecord,
+  AlbumRecord,
   SpotifyTokenResponse
 } from "./types";
+import { fetchSpotifyTracks } from "./spotify";
 
 async function connectDB() {
-  const database = await openDB('spotify-archive', 1, {
+  const database = await openDB("spotify-archive", 1, {
     upgrade(db) {
-      db.createObjectStore('audio', { autoIncrement: true });
-      db.createObjectStore('audio_track', { keyPath: 'track_uri' });
-      db.createObjectStore('audio_artist', { keyPath: 'artist_name' });
-      db.createObjectStore('audio_album', { keyPath: 'album_artist' });
-      db.createObjectStore('total_stats', { autoIncrement: true });
-      db.createObjectStore('metadata', { keyPath: 'key' });
-      db.createObjectStore('spotify_auth', { keyPath: "key" });
+      const playsStore = db.createObjectStore("plays", {
+        keyPath: "id",
+        autoIncrement: true,
+      });
+      playsStore.createIndex("ts", "ts");
+
+      db.createObjectStore("tracks", { keyPath: "id" });
+      db.createObjectStore("artists", { keyPath: "id" });
+      db.createObjectStore("albums", { keyPath: "id" });
+      db.createObjectStore("metadata", { keyPath: "key" });
+      db.createObjectStore("spotify_auth", { keyPath: "key" });
     }
   })
 
   return database
 }
 
-export async function saveRecords(
-  records: SpotifyJsonType[],
-  isCanceled: () => boolean
-): Promise<boolean> {
-  const db = await connectDB();
-  if (isCanceled()) return false;
-
-  await db.put('metadata', {
-    key: 'uploadStatus',
-    complete: false
-  });
-  if (isCanceled()) return false;
-
-  const promises: Promise<void>[] = [];
-
-  // ---------------------------------------------
-  // --- Store audio records from Spotify data ---
-  // ---------------------------------------------
-  const audioTx = db.transaction('audio', 'readwrite');
-  audioTx.store.clear(); 
-  
-  const audioRows: AudioRowType[] = [];
-  for (const record of records) {
-    if (isCanceled()) return false;
-
-    const result = AudioRow.safeParse(record);
-    if (!result.success) {
-      continue
-    }
-    audioRows.push(result.data);
-    audioTx.store.add(result.data);
-  }
-  promises.push(audioTx.done)
- 
-
-  // -------------------------------------------
-  // --- Store track, artist, and album data ---
-  // -------------------------------------------
-  const trackTx = db.transaction('audio_track', 'readwrite');
-  const artistTx = db.transaction('audio_artist', 'readwrite');
-  const albumTx = db.transaction('audio_album', 'readwrite');
-  trackTx.store.clear();
-  artistTx.store.clear();
-  albumTx.store.clear();
-  
-  const trackMap = new Map<string, AudioTrackVals>();
-  const artistMap = new Map<string, ArtistTrackVals>();
-  const albumMap = new Map<string, AlbumTrackVals>();
-
-  for (const row of audioRows) {
-    if (isCanceled()) return false;
-
-    // Extract relevant information from each row
-    const row_ms_played = row.ms_played;
-    const row_track_name = row.master_metadata_track_name;
-    const row_artist_name = row.master_metadata_album_artist_name;
-    const row_album_name = row.master_metadata_album_album_name;
-    const row_uri = row.spotify_track_uri;
-
-    // map tracks
-    const current_track = trackMap.get(row_uri);
-    if (current_track) {
-      const current_playcount = current_track.play_count;
-      const current_total_ms = current_track.total_ms_played;
-      trackMap.set(row_uri, { 
-        track_name: row_track_name, 
-        play_count: current_playcount + 1, 
-        total_ms_played: current_total_ms + row_ms_played
-      })
-    } else {
-      trackMap.set(row_uri, {
-        track_name: row_track_name,
-        play_count: 1,
-        total_ms_played: row_ms_played
-      })
-    }
-
-    // map artists
-    const current_artist = artistMap.get(row_artist_name);
-    if (current_artist) {
-      const current_playcount = current_artist.play_count;
-      const current_total_ms = current_artist.total_ms_played;
-      artistMap.set(row_artist_name, {
-        play_count: current_playcount + 1,
-        total_ms_played: current_total_ms + row_ms_played
-      })
-    } else {
-      artistMap.set(row_artist_name, {
-        play_count: 1,
-        total_ms_played: row_ms_played
-      })
-    }
-
-    // map album
-    const current_album = albumMap.get(`${row_album_name}-${row_artist_name}`);
-    if (current_album) {
-      const current_playcount = current_album.play_count;
-      const current_total_ms = current_album.total_ms_played;
-      albumMap.set(`${row_album_name}-${row_artist_name}`, {
-        album_name: row_album_name,
-        artist_name: row_artist_name,
-        play_count: current_playcount + 1,
-        total_ms_played: current_total_ms + row_ms_played
-      })
-    } else {
-      albumMap.set(`${row_album_name}-${row_artist_name}`, {
-        album_name: row_album_name,
-        artist_name: row_artist_name,
-        play_count: 1,
-        total_ms_played: row_ms_played
-      })     
-    }
-  }
-
-  // store tracks
-  for (const [track_uri, track] of trackMap.entries()) {
-    if (isCanceled()) return false;
-    trackTx.store.add({ track_uri, ...track });
-  }
-
-  // store artists
-  for (const [artist_name, artist] of artistMap.entries()) {
-    if (isCanceled()) return false;
-    artistTx.store.add({ artist_name, ...artist });
-  }
-
-  // store albums
-  for (const [album_artist, album] of albumMap.entries()) {
-    if (isCanceled()) return false;
-    albumTx.store.add({ album_artist, ...album });
-  }
-  
-  promises.push(trackTx.done, artistTx.done, albumTx.done)
-
-  
-  // -------------------------------
-  // --- Store total audio stats ---
-  // -------------------------------
-  const totalTx = db.transaction('total_stats', 'readwrite');
-  totalTx.store.clear();
-
-  const stats = { count: 0, total_ms_played: 0 };
-   
-  for (const row of audioRows) {
-    if (isCanceled()) return false;
-
-    stats.count = stats.count + 1;
-    stats.total_ms_played = stats.total_ms_played + row.ms_played;
-  }
-
-  totalTx.store.add(stats);
-  promises.push(totalTx.done);
-
-
-  // -------------------------
-  // --- Store hourly data ---
-  // -------------------------
-
-
-  // ----------------------------
-  // --- Store over time data ---
-  // ----------------------------
-  
-
-
-  await Promise.all(promises);
-  if (isCanceled()) return false;
-
-  await db.put('metadata', {
-    key: 'uploadStatus',
-    complete: true
-  });
-
-  return true;
-}
-
-export async function hasRecords() {
-  const db = await connectDB();
-  const metadata= await db.get('metadata', 'uploadStatus');
-  return metadata?.complete === true;
-}
-
-export async function getStore(store: string) {
-  const database = await connectDB();
-  const tx = database.transaction(store, 'readonly');
-  const data = await tx.store.getAll();
-  return data
-}
-
 export async function saveSpotifyToken(token: SpotifyTokenResponse) {
   const db = await connectDB();
 
-  await db.put('spotify_auth', {
+  await db.put("spotify_auth", {
     key: "token",
     accessToken: token.access_token,
     refreshToken: token.refresh_token,
@@ -229,6 +44,179 @@ export async function saveSpotifyToken(token: SpotifyTokenResponse) {
 
 export async function getSpotifyToken() {
   const db = await connectDB();
-  const token = await db.get('spotify_auth', 'token');
+  const token = await db.get("spotify_auth", "token");
   return token;
+}
+
+export async function saveRecords(records: SpotifyJsonType[], isCanceled: () => boolean): Promise<boolean> {
+  const db = await connectDB();
+  if (isCanceled()) return false;
+
+  await db.put("metadata", {
+    key: "uploadStatus",
+    complete: false
+  });
+  if (isCanceled()) return false;
+
+  const playsTx = db.transaction("plays", "readwrite");
+  playsTx.store.clear();
+
+  const trackIds = new Set<string>();
+  
+  for (const play of records) {
+    if (isCanceled()) {
+      playsTx.abort();
+      return false;
+    }
+
+    // Filter out podcasts and audiobooks
+    if (
+      !play.spotify_track_uri ||
+      !play.master_metadata_track_name ||
+      !play.master_metadata_album_artist_name ||
+      !play.master_metadata_album_album_name
+    ) {
+      continue;
+    }
+
+    const trackId = play.spotify_track_uri.split(":")[2];
+    trackIds.add(trackId);
+
+    const playRecord: PlayRecord = {
+      ts: play.ts,
+      msPlayed: play.ms_played,
+      connCountry: play.conn_country,
+      trackId,
+      trackName: play.master_metadata_track_name,
+      artistName: play.master_metadata_album_artist_name,
+      albumName: play.master_metadata_album_album_name,
+      reasonStart: play.reason_start,
+      reasonEnd: play.reason_end,
+      shuffle: play.shuffle,
+      skipped: play.skipped,
+      offline: play.offline,
+      offlineTimestamp: play.offline_timestamp,
+      incognitoMode: play.incognito_mode,
+    };
+
+    playsTx.store.add(playRecord);
+  }
+
+  await playsTx.done;
+
+  // spotify web api
+  const trackIdsArray = [...trackIds];
+
+  const spotifyToken = await getSpotifyToken();
+  if (!spotifyToken) {
+    throw new Error("Missing Spotify Access Token");
+  };
+
+  for (let i = 0; i < trackIdsArray.length; i += 50) {
+    if (isCanceled()) return false;
+    const batch = trackIdsArray.slice(i, i + 50);
+    const spotifyTracks = await fetchSpotifyTracks(batch, spotifyToken.accessToken);
+
+    if (isCanceled()) return false;
+
+    const tx = db.transaction(["tracks", "albums", "artists"], "readwrite");
+
+    const tracksStore = tx.objectStore("tracks");
+    const albumsStore = tx.objectStore("albums");
+    const artistsStore = tx.objectStore("artists");
+    
+    for (const spotifyTrack of spotifyTracks) {
+      if (isCanceled()) {
+        tx.abort();
+        return false;
+      }
+
+      // store track
+      const trackArtists = spotifyTrack.artists;
+      const artistIds: string[] = [];
+      for (const trackArtist of trackArtists) {
+        artistIds.push(trackArtist.id)
+      }
+
+      const trackRecord: TrackRecord = {
+        id: spotifyTrack.id,
+        artistIds,
+        albumId: spotifyTrack.album.id,
+
+        name: spotifyTrack.name,
+        spotifyUrl: spotifyTrack.external_urls.spotify,
+
+        durationMs: spotifyTrack.duration_ms,
+        explicit: spotifyTrack.explicit,
+        popularity: spotifyTrack.popularity,
+        discNumber: spotifyTrack.disc_number,
+        trackNumber: spotifyTrack.track_number
+      };
+
+      tracksStore.put(trackRecord);
+
+      // store artists
+      for (const trackArtist of trackArtists) { 
+        const artistRecord: ArtistRecord = {
+          id: trackArtist.id,
+
+          name: trackArtist.name,
+          spotifyUrl: trackArtist.external_urls.spotify
+        }
+
+        artistsStore.put(artistRecord);
+      }
+
+      // store album
+      const spotifyAlbum = spotifyTrack.album;
+
+      const albumArtists = spotifyAlbum.artists;
+      const albumArtistIds: string[] = [];
+      for (const albumArtist of albumArtists) {
+        albumArtistIds.push(albumArtist.id)
+      }
+
+      const albumRecord: AlbumRecord = {
+        id: spotifyAlbum.id,
+        artistIds: albumArtistIds,
+
+        name: spotifyAlbum.name,
+        spotifyUrl: spotifyAlbum.external_urls.spotify,
+        images: spotifyAlbum.images,
+
+        albumType: spotifyAlbum.album_type,
+        totalTracks: spotifyAlbum.total_tracks,
+        releaseDate: spotifyAlbum.release_date,
+        releaseDatePrecision: spotifyAlbum.release_date_precision,
+      }
+
+      albumsStore.put(albumRecord);
+    }
+
+    await tx.done;
+  }
+
+
+  
+  if (isCanceled()) return false;
+
+  await db.put("metadata", {
+    key: "uploadStatus",
+    complete: true
+  });
+
+  return true;
+}
+
+export async function hasRecords() {
+  const db = await connectDB();
+  const metadata= await db.get("metadata", "uploadStatus");
+  return metadata?.complete === true;
+}
+
+export async function getStore(store: string) {
+  const database = await connectDB();
+  const tx = database.transaction(store, "readonly");
+  const data = await tx.store.getAll();
+  return data
 }
